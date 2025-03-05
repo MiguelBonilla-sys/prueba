@@ -1,6 +1,7 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react"
+import type React from "react"
+import { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react"
 import { v4 as uuidv4 } from "uuid"
 
 // Define types with more precise typing
@@ -83,7 +84,7 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
         id: foundUser.id,
         name: foundUser.name,
         email: foundUser.email,
-        role: foundUser.role
+        role: foundUser.role,
       }
 
       // Store user in state and localStorage
@@ -96,37 +97,35 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
   }, [])
 
   // Memoized registration function with useCallback
-  const register = useCallback(async (
-    name: string, 
-    email: string, 
-    password: string, 
-    role: UserRole
-  ): Promise<boolean> => {
-    const users = JSON.parse(localStorage.getItem("users") ?? "[]") as StoredUser[]
-    const userExists = users.some((u) => u.email === email)
+  const register = useCallback(
+    async (name: string, email: string, password: string, role: UserRole): Promise<boolean> => {
+      const users = JSON.parse(localStorage.getItem("users") ?? "[]") as StoredUser[]
+      const userExists = users.some((u) => u.email === email)
 
-    if (userExists) {
-      return false
-    }
+      if (userExists) {
+        return false
+      }
 
-    // Create new user
-    const newUser: StoredUser = {
-      id: uuidv4(),
-      name,
-      email,
-      password,
-      role,
-    }
+      // Create new user
+      const newUser: StoredUser = {
+        id: uuidv4(),
+        name,
+        email,
+        password,
+        role,
+      }
 
-    // Add user to users array
-    users.push(newUser)
-    localStorage.setItem("users", JSON.stringify(users))
+      // Add user to users array
+      users.push(newUser)
+      localStorage.setItem("users", JSON.stringify(users))
 
-    // Initialize user data if needed
-    initializeUserData(newUser.id, role)
+      // Initialize user data if needed
+      initializeUserData(newUser.id, role)
 
-    return true
-  }, [])
+      return true
+    },
+    [],
+  )
 
   // Initialize user data
   const initializeUserData = (userId: string, role: UserRole) => {
@@ -189,14 +188,17 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
   }, [])
 
   // Memoize the value object to prevent unnecessary re-renders
-  const value = useMemo(() => ({
-    user,
-    isAuthenticated: !!user,
-    isLoading,
-    login,
-    register,
-    logout,
-  }), [user, isLoading, login, register, logout])
+  const value = useMemo(
+    () => ({
+      user,
+      isAuthenticated: !!user,
+      isLoading,
+      login,
+      register,
+      logout,
+    }),
+    [user, isLoading, login, register, logout],
+  )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
@@ -209,3 +211,4 @@ export const useAuth = (): AuthContextType => {
   }
   return context
 }
+

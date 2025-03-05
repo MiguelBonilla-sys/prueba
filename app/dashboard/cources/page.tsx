@@ -1,202 +1,114 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useState } from "react"
 import { useAuth } from "@/context/auth-context"
 import { useData } from "@/context/data-context"
-import { useNotification } from "@/context/notification-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PlusCircle, Edit, Trash2, Users, FileText } from "lucide-react"
-import { CourseStudentsList } from "@/components/course-students-list"
-import { CourseActivitiesList } from "@/components/course-activities-list"
-import { CreateActivityDialog } from "@/components/create-activity-dialog"
-import { EditCourseDialog } from "@/components/edit-course-dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { PlusCircle, Search } from "lucide-react"
+import { CourseCard } from "@/components/course-card"
+import { CreateCourseDialog } from "@/components/create-course-dialog"
 
-export default function CoursePage() {
-  const { id } = useParams<{ id: string }>()
-  const router = useRouter()
+export default function CoursesPage() {
   const { user } = useAuth()
-  const { getCourse, deleteCourse } = useData()
-  const { showNotification } = useNotification()
+  const { courses, getStudentCourses, getProfessorCourses } = useData()
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [filteredCourses, setFilteredCourses] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const [course, setCourse] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [showCreateActivityDialog, setShowCreateActivityDialog] = useState(false)
-  const [showEditCourseDialog, setShowEditCourseDialog] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  // Get courses based on user role
+  const userCourses =
+    user?.role === "estudiante"
+      ? getStudentCourses(user.id)
+      : user?.role === "profesor"
+        ? getProfessorCourses(user.id)
+        : courses
 
-  useEffect(() => {
-    // Fetch course data
-    const courseData = getCourse(id)
-    if (courseData) {
-      setCourse(courseData)
-    } else {
-      // Course not found, redirect to courses page
-      router.push("/dashboard/courses")
-      showNotification({
-        title: "Error",
-        message: "El curso no existe o no tienes acceso",
-        type: "error",
-      })
-    }
-    setLoading(false)
-  }, [id, getCourse, router, showNotification])
+  // Filter courses when dependencies change
+  useState(() => {
+    if (isLoading) return
 
-  const handleDeleteCourse = () => {
-    deleteCourse(id)
-    router.push("/dashboard/courses")
-    showNotification({
-      title: "Curso eliminado",
-      message: "El curso ha sido eliminado correctamente",
-      type: "success",
+    const filtered = userCourses.filter((course) => {
+      // Apply search filter
+      const matchesSearch =
+        course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        course.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        course.description.toLowerCase().includes(searchQuery.toLowerCase())
+
+      // Apply status filter (in a real app, courses might have a status property)
+      const matchesStatus = statusFilter === "all" || true // Placeholder for status filtering
+
+      return matchesSearch && matchesStatus
     })
-  }
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-      </div>
-    )
-  }
-
-  if (!course) {
-    return null // Will redirect in useEffect
-  }
-
-  const canEdit = user?.role === "administrador" || (user?.role === "profesor" && course.professorId === user.id)
+    setFilteredCourses(filtered)
+    setIsLoading(false)
+  })
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{course.name}</h1>
-          <p className="text-gray-500">Código: {course.code}</p>
-        </div>
-        {canEdit && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowEditCourseDialog(true)}>
-              <Edit className="mr-2 h-4 w-4" />
-              Editar
-            </Button>
-            <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              Eliminar
-            </Button>
-          </div>
+        <h1 className="text-3xl font-bold tracking-tight">Cursos</h1>
+        {(user?.role === "profesor" || user?.role === "administrador") && (
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Crear Curso
+          </Button>
         )}
       </div>
 
-      <Tabs defaultValue="activities">
-        <TabsList>
-          <TabsTrigger value="activities">Actividades</TabsTrigger>
-          <TabsTrigger value="students">Estudiantes</TabsTrigger>
-          <TabsTrigger value="grades">Calificaciones</TabsTrigger>
-        </TabsList>
+      <Card>
+        <CardHeader>
+          <CardTitle>Gestión de Cursos</CardTitle>
+          <CardDescription>Administra los cursos académicos</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-6 flex flex-col gap-4 md:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+              <Input
+                placeholder="Buscar cursos..."
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filtrar por estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los cursos</SelectItem>
+                  <SelectItem value="active">Activos</SelectItem>
+                  <SelectItem value="inactive">Inactivos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-        <TabsContent value="activities" className="space-y-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Actividades Académicas</CardTitle>
-                <CardDescription>Gestiona las actividades del curso</CardDescription>
-              </div>
-              {canEdit && (
-                <Button onClick={() => setShowCreateActivityDialog(true)}>
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Nueva Actividad
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent>
-              <CourseActivitiesList courseId={id} />
-            </CardContent>
-          </Card>
-        </TabsContent>
+          {userCourses.length === 0 ? (
+            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed">
+              <p className="text-center text-gray-500">
+                No se encontraron cursos.{" "}
+                {(user?.role === "profesor" || user?.role === "administrador") && "¡Crea uno nuevo!"}
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {userCourses.map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        <TabsContent value="students">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Estudiantes</CardTitle>
-                <CardDescription>Estudiantes inscritos en el curso</CardDescription>
-              </div>
-              {canEdit && (
-                <Button variant="outline">
-                  <Users className="mr-2 h-4 w-4" />
-                  Gestionar Estudiantes
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent>
-              <CourseStudentsList courseId={id} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="grades">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Calificaciones</CardTitle>
-                <CardDescription>Gestiona las calificaciones del curso</CardDescription>
-              </div>
-              {canEdit && (
-                <Button variant="outline">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Exportar Calificaciones
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent>
-              {/* Grades management component will be implemented here */}
-              <p>El componente de gestión de calificaciones se implementará aquí.</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {showCreateActivityDialog && (
-        <CreateActivityDialog
-          open={showCreateActivityDialog}
-          onClose={() => setShowCreateActivityDialog(false)}
-          courseId={id}
-        />
-      )}
-
-      {showEditCourseDialog && (
-        <EditCourseDialog open={showEditCourseDialog} onClose={() => setShowEditCourseDialog(false)} course={course} />
-      )}
-
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer. Se eliminarán todas las actividades y calificaciones asociadas a este
-              curso.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteCourse} className="bg-destructive text-destructive-foreground">
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {showCreateDialog && <CreateCourseDialog open={showCreateDialog} onClose={() => setShowCreateDialog(false)} />}
     </div>
   )
 }

@@ -39,7 +39,7 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 // Provider component
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([])
-  const { toast } = useToast()
+  const { toast: showToast } = useToast()
 
   // Calculate unread count
   const unreadCount = notifications.filter((notification) => !notification.read).length
@@ -56,7 +56,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     setNotifications((prevNotifications) => [newNotification, ...prevNotifications])
 
     // Show toast
-    toast({
+    showToast({
       message: notification.title,
       description: notification.message,
       type: notification.type === "error" ? "error" : notification.type,
